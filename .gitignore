@@ -1,0 +1,5 @@
+# datasets / generated files
+esc-50-audio/
+
+# executable
+soundknn.exe
