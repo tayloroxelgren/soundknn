@@ -39,11 +39,22 @@ int main(){
     // Closing windows handler
     FindClose(myHandle);
 
+    float *distanceArrays[2000];
+    for(int i=0;i<2000;i++){
+        distanceArrays[i]=calloc(2000,sizeof(float));
+    }
 
-    // Freeing the memory
+
+
+    // Freeing the memory of images
     for(int i=0;i<counter;i++){
         stbi_image_free(audioData[i].data);
         free(audioData[i].fileName);
+    }
+
+    // Freeing memeing of  distance arrays
+    for(int i=0;i<2000;i++){
+        free(distanceArrays[i]);
     }
     return 0;
 }
