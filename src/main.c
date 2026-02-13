@@ -12,60 +12,59 @@
 
 
 typedef struct AudioData{
-    unsigned char *data;
+    int index;
     char *fileName;
+    int x;
+    int y;
 }AudioData;
 
+void EuclideanDistance(unsigned char* imgs, int img1Offset,int img2Offset,int imsize,float *result){
 
-float EuclideanDistance(AudioData *im1,AudioData *im2){
-    // Using hard coded x,y for now
-    int x,y;
-    x=256;
-    y=256;
-    float distance=0;
-
-    for(int i=0;i<(x*y);i++){
-        float d = (float)im1->data[i] - (float)im2->data[i];
-        distance += d * d;
+    uint32_t distance=0;
+    for(int i=0;i<imsize;i++){
+        long d = imgs[img1Offset+i] - imgs[img2Offset+i];
+        distance += (d * d);
     }
 
     // Leaving out sqrt to save compute as it doesn't change distance rankings
     // distance=sqrtf(distance);
-    return distance;
+    *result=(float)distance;
 }
 
-void computeDistanceMatrix(AudioData *audioData, float **distanceArrays,int nfiles, int counter){
+void computeDistanceMatrix(unsigned char* imgs,AudioData *audioData, float **distanceArrays,int nfiles, int counter){
     // Computes distance matrix for all images
     int matrixSize=nfiles*nfiles;
     unsigned int computeCounter=0;
     for(int i = 0; i < counter; i++){
         for(int j = 0; j < counter; j++){
-            float d = EuclideanDistance(&audioData[i], &audioData[j]);
-            distanceArrays[i][j] = d;
+            float distance;
+            int imsize=audioData[i].x*audioData[i].y;
+            EuclideanDistance(imgs, audioData[i].index*imsize,audioData[j].index*imsize,imsize,&distance);
+            distanceArrays[i][j] = distance;
             computeCounter++;
         }
-        // printf("Way through matrix compute: %d\n",(computeCounter/matrixSize)*100);
         printf("\rWay through matrix compute: %.2f%%",(computeCounter/(float)matrixSize)*100);
         fflush(stdout);
     }
     printf("\n");
 }
 
-void computeDistanceMatrixOMP(AudioData *audioData, float **distanceArrays,int nfiles, int counter){
+void computeDistanceMatrixOMP(unsigned char* imgs,AudioData *audioData, float **distanceArrays,int nfiles, int counter){
     // Computes distance matrix for all images
-    int matrixSize=2000*2000;
+    int matrixSize=nfiles*nfiles;
     unsigned int computeCounter=0;
     // Uses openmp to use all threads for this
     #pragma omp parallel for schedule(static)
     for(int i = 0; i < counter; i++){
         for(int j = 0; j < counter; j++){
-            float d = EuclideanDistance(&audioData[i], &audioData[j]);
-            distanceArrays[i][j] = d;
+            float distance;
+            int imsize=audioData[i].x*audioData[i].y;
+            EuclideanDistance(imgs, audioData[i].index*imsize,audioData[j].index*imsize,imsize,&distance);
+            distanceArrays[i][j] = distance;
             #pragma omp atomic
             computeCounter++;
         }
-        #pragma omp critical
-        {
+        if (omp_get_thread_num() == 0){
             printf("\rWay through matrix compute: %.2f%%",(computeCounter/(float)matrixSize)*100);
             fflush(stdout);
         }
@@ -77,8 +76,7 @@ void computeDistanceMatrixOMP(AudioData *audioData, float **distanceArrays,int n
 int getAmountOfFiles(){
     HANDLE myHandle;
     WIN32_FIND_DATA FindFileData;
-    const char* directory="esc-50-audio/img/*.png";
-    int x,y;
+    const char *directory="esc-50-audio/img/*.png";
     int counter=0;
 
     // Getting first file out of the loop
@@ -109,16 +107,29 @@ int main(){
     myHandle=FindFirstFileA(directory,&FindFileData);
     char path[MAX_PATH];
     snprintf(path, MAX_PATH, "esc-50-audio/img/%s", FindFileData.cFileName);
-    audioData[0].data = stbi_load(path, &x, &y, NULL, 1);
+
+    unsigned char *tmpData;
+
+    tmpData = stbi_load(path, &x, &y, NULL, 1);
+    unsigned char *imgData=malloc(sizeof(char)*x*y*nfiles);
+    memcpy(imgData,tmpData,(size_t)x*y);
+    stbi_image_free(tmpData);
     // _strdup allocates new memory and copies the string so the struct keeps its own
     audioData[0].fileName = _strdup(path);
+    audioData[0].index=0;
+    audioData[0].x=x;
+    audioData[0].y=y;
 
     int counter=1;
     // Gets all other files
     while(FindNextFileA(myHandle,&FindFileData)&& counter<nfiles){
-        // printf("%s\n",FindFileData.cFileName);
         snprintf(path, MAX_PATH, "esc-50-audio/img/%s", FindFileData.cFileName);
-        audioData[counter].data = stbi_load(path, &x, &y, NULL, 1);
+        tmpData=stbi_load(path, &x, &y, NULL, 1);
+        memcpy(imgData+((size_t)counter*x*y),tmpData,(size_t)x*y);
+        stbi_image_free(tmpData);
+        audioData[counter].index = counter;
+        audioData[counter].y = y;
+        audioData[counter].x = x;
         audioData[counter].fileName = _strdup(path);
         counter++;
     }
@@ -132,7 +143,8 @@ int main(){
     }
 
     time_t now = time(NULL);
-    computeDistanceMatrixOMP(audioData, distanceArrays,nfiles, counter);
+    computeDistanceMatrixOMP(imgData,audioData, distanceArrays,nfiles, counter);
+    // computeDistanceMatrix(imgData,audioData, distanceArrays,nfiles, counter);
     printf("Time it took to compute matrix: %lld seconds\n",time(NULL)-now);
 
     // Searches for index of specific image
@@ -163,10 +175,7 @@ int main(){
     printf("Closest: %s",audioData[closest].fileName);
 
     // Freeing the memory of images
-    for(int i=0;i<counter;i++){
-        stbi_image_free(audioData[i].data);
-        free(audioData[i].fileName);
-    }
+    free(imgData);
 
     // Freeing memeing of  distance arrays
     for(int i=0;i<nfiles;i++){
