@@ -3,3 +3,15 @@ esc-50-audio/
 
 # executable
 soundknn.exe
+cltest.exe
+
+# opencl lib
+OpenCL.lib
+CL/
+
+#vscode stuff
+.vscode
+
+#extrastuff
+src/testcl.c
+src/starterkernel.cl

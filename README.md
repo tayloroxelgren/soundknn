@@ -16,7 +16,7 @@ With loudnorm to try to improve performance by normalizing loudness
 Used for gathering the image data
 
 ## Building
-`clang src/main.c -Iexternal -O3 -fopenmp -march=native -o soundknn.exe`
+`clang src/main.c -Iexternal -Lexternal -lOpenCL -O3 -fopenmp -march=native -o soundknn.exe`
 
 ### Todo
 - [x] Load all images from directory

@@ -4,6 +4,8 @@
 #include <windows.h>
 #include <time.h>
 #include <omp.h>
+#define CL_TARGET_OPENCL_VERSION 120
+#include <CL/cl.h>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -131,7 +133,7 @@ int main(){
 
     time_t now = time(NULL);
     computeDistanceMatrixOMP(audioData, distanceArrays,nfiles, counter);
-    printf("Time it took to compute matrix: %lld\n seconds",time(NULL)-now);
+    printf("Time it took to compute matrix: %lld seconds\n",time(NULL)-now);
 
     // Searches for index of specific image
     char img[]="esc-50-audio/img/4-189838-A-22.png";
@@ -167,7 +169,7 @@ int main(){
     }
 
     // Freeing memeing of  distance arrays
-    for(int i=0;i<2000;i++){
+    for(int i=0;i<nfiles;i++){
         free(distanceArrays[i]);
     }
     free(distanceArrays);
