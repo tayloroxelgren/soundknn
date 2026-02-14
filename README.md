@@ -21,4 +21,4 @@ Used for gathering the image data
 ### Todo
 - [x] Load all images from directory
 - [x] Do knn algorithm
-- [ ] Use opencl to accelerate algorithm execution
+- [x] Use opencl to accelerate algorithm execution

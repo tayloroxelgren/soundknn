@@ -127,17 +127,14 @@ void computeDistanceOpenCL(unsigned char* imgs,AudioData *audioData, float **dis
     free(kernelsourcecode);
     kernel=clCreateKernel(program,(const char*)"EuclideanDistance",NULL);
 
-    float distance = 0.0f;
-    int offset1_offset2_imsize[3] = {0, 0, 0};
+    float distance[2000];
     cl_mem imgs_gpumem=clCreateBuffer(context,CL_MEM_READ_ONLY|CL_MEM_COPY_HOST_PTR,sizeof(char)*nfiles*audioData[0].x*audioData[0].y,imgs,NULL);
-    cl_mem offset1_offset2_imsize_gpumem=clCreateBuffer(context,CL_MEM_READ_ONLY|CL_MEM_COPY_HOST_PTR,sizeof(int)*3,offset1_offset2_imsize,NULL);
-    cl_mem distance_gpumem=clCreateBuffer(context,CL_MEM_WRITE_ONLY,sizeof(float),NULL,NULL);
+    cl_mem distance_gpumem=clCreateBuffer(context,CL_MEM_WRITE_ONLY,sizeof(float)*2000,NULL,NULL);
 
     clSetKernelArg(kernel,0,sizeof(cl_mem),&imgs_gpumem);
-    clSetKernelArg(kernel,1,sizeof(cl_mem),&offset1_offset2_imsize_gpumem);
-    clSetKernelArg(kernel, 2, sizeof(cl_mem), &distance_gpumem);
+    clSetKernelArg(kernel, 3, sizeof(cl_mem), &distance_gpumem);
 
-    size_t globalWorkSize=256;
+    size_t globalWorkSize=256*2000;
     size_t localWorkSize  = 256;
 
 
@@ -145,20 +142,19 @@ void computeDistanceOpenCL(unsigned char* imgs,AudioData *audioData, float **dis
     int matrixSize=nfiles*nfiles;
     unsigned int computeCounter=0;
     for(int i = 0; i < counter; i++){
-        for(int j = 0; j < counter; j++){
-            int imsize=audioData[i].x*audioData[i].y;
+        int imsize=audioData[i].x*audioData[i].y;
+        int offset1=audioData[i].index*imsize;
+        
+        // Sets kernel args
+        clSetKernelArg(kernel,1,sizeof(int),&offset1);
+        clSetKernelArg(kernel,2,sizeof(int),&imsize);
 
-            offset1_offset2_imsize[0] = audioData[i].index * imsize;
-            offset1_offset2_imsize[1] = audioData[j].index * imsize;
-            offset1_offset2_imsize[2] = imsize;
-
-            // Writes to gpu buffer for args
-            clEnqueueWriteBuffer(commandQueue,offset1_offset2_imsize_gpumem,CL_TRUE,0,sizeof(int)*3,offset1_offset2_imsize,0,NULL,NULL);
-            // Launches kernel
-            clEnqueueNDRangeKernel(commandQueue,kernel,1,NULL,&globalWorkSize,&localWorkSize,0, NULL, NULL);
-            // reads distance back
-            clEnqueueReadBuffer(commandQueue, distance_gpumem, CL_TRUE, 0, sizeof(float), &distance, 0, NULL, NULL);
-            distanceArrays[i][j]=distance;
+        // Launches kernel
+        clEnqueueNDRangeKernel(commandQueue,kernel,1,NULL,&globalWorkSize,&localWorkSize,0, NULL, NULL);
+        // Read buffer back
+        clEnqueueReadBuffer(commandQueue, distance_gpumem, CL_TRUE, 0, sizeof(float)*2000, distance, 0, NULL, NULL);
+        for(int j=0;j<counter;j++){
+            distanceArrays[i][j]=distance[j];
             computeCounter++;
         }
         printf("\rWay through matrix compute: %.2f%%",(computeCounter/(float)matrixSize)*100);
@@ -167,7 +163,6 @@ void computeDistanceOpenCL(unsigned char* imgs,AudioData *audioData, float **dis
     printf("\n");
     // releasing all objects 
     clReleaseMemObject(distance_gpumem);
-    clReleaseMemObject(offset1_offset2_imsize_gpumem);
     clReleaseMemObject(imgs_gpumem);
     clReleaseKernel(kernel);
     clReleaseProgram(program);
