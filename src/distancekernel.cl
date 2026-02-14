@@ -14,7 +14,7 @@ __kernel void EuclideanDistance(__global unsigned const char *imgs,
 
     __local unsigned int partial[256];
 
-    for (int i = gid; i < imsize; i += groupSize) {
+    for (int i = lid; i < imsize; i += groupSize) {
         int d = (int)imgs[img1Offset + i] - (int)imgs[img2Offset + i];
         sum += (unsigned int)(d * d);
     }

@@ -158,6 +158,7 @@ void computeDistanceOpenCL(unsigned char* imgs,AudioData *audioData, float **dis
             clEnqueueNDRangeKernel(commandQueue,kernel,1,NULL,&globalWorkSize,&localWorkSize,0, NULL, NULL);
             // reads distance back
             clEnqueueReadBuffer(commandQueue, distance_gpumem, CL_TRUE, 0, sizeof(float), &distance, 0, NULL, NULL);
+            distanceArrays[i][j]=distance;
             computeCounter++;
         }
         printf("\rWay through matrix compute: %.2f%%",(computeCounter/(float)matrixSize)*100);
@@ -245,8 +246,8 @@ int main(){
     }
 
     time_t now = time(NULL);
-    // computeDistanceMatrixOMP(imgData,audioData, distanceArrays,nfiles, counter);
     // computeDistanceMatrix(imgData,audioData, distanceArrays,nfiles, counter);
+    // computeDistanceMatrixOMP(imgData,audioData, distanceArrays,nfiles, counter);
     computeDistanceOpenCL(imgData,audioData, distanceArrays,nfiles, counter);
     printf("Time it took to compute matrix: %lld seconds\n",time(NULL)-now);
 
